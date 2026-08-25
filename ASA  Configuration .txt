@@ -1,0 +1,76 @@
+! Cisco ASA Basic Settings and Firewall Configuration
+
+enable
+! for password
+conf t
+
+hostname NETSEC-ASA
+domain-name netsec.com
+enable password ciscoenpa55
+
+clock set 10:37:27 April 13 2021
+
+! Configure INSIDE Interface
+
+interface g1/2
+nameif INSIDE
+ip address 192.168.1.1 255.255.255.0
+security-level 100
+no shutdown
+
+! Configure OUTSIDE Interface
+
+interface g1/1
+nameif OUTSIDE
+ip address 209.165.200.226 255.255.255.248
+security-level 0
+no shutdown
+
+! Configure Default Route
+
+route OUTSIDE 0.0.0.0 0.0.0.0 209.165.200.225
+
+! Configure Dynamic PAT
+
+object network INSIDE-NET
+subnet 192.168.1.0 255.255.255.0
+nat (INSIDE,OUTSIDE) dynamic interface
+
+! Configure DHCP
+
+dhcpd address 192.168.1.5-192.168.1.36 INSIDE
+dhcpd dns 209.165.201.2 interface INSIDE
+dhcpd enable INSIDE
+
+! Configure AAA Authentication
+
+username admin password adminpa55
+aaa authentication ssh console LOCAL
+
+! Configure SSH
+
+crypto key generate rsa modulus 1024
+no
+ssh 192.168.1.0 255.255.255.0 INSIDE
+ssh 172.16.3.3 255.255.255.255 OUTSIDE
+ssh timeout 10
+
+! Configure DMZ Interface
+
+interface g1/3
+ip address 192.168.2.1 255.255.255.0
+nameif DMZ
+security-level 70
+no shutdown
+
+! Configure Static NAT for DMZ Server
+
+object network DMZ-SERVER
+host 192.168.2.3
+nat (DMZ,OUTSIDE) static 209.165.200.227
+
+! Configure ACL
+
+access-list OUTSIDE-DMZ permit icmp any host 192.168.2.3
+access-list OUTSIDE-DMZ permit tcp any host 192.168.2.3 eq 80
+access-group OUTSIDE-DMZ in interface OUTSIDE
